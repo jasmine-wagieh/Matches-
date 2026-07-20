@@ -8,7 +8,8 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// MongoDB connection
+// -------------------- DATABASE --------------------
+
 mongoose
   .connect(process.env.MONGO_URI)
   .then(() => {
@@ -65,34 +66,87 @@ app.get("/", (req, res) => {
   });
 });
 
-// -------------------- ITEMS FEED --------------------
+// -------------------- ITEMS, SEARCH AND PAGINATION --------------------
 
 app.get("/api/items", async (req, res) => {
   try {
     const page = Math.max(Number.parseInt(req.query.page, 10) || 1, 1);
+
     const limit = Math.min(
-      Math.max(Number.parseInt(req.query.limit, 10) || 24, 1),
+      Math.max(Number.parseInt(req.query.limit, 10) || 12, 1),
       100
     );
+
+    const search = (req.query.search || "").trim();
+
+    const filter = search
+      ? {
+          $or: [
+            {
+              productDisplayName: {
+                $regex: search,
+                $options: "i",
+              },
+            },
+            {
+              articleType: {
+                $regex: search,
+                $options: "i",
+              },
+            },
+            {
+              subCategory: {
+                $regex: search,
+                $options: "i",
+              },
+            },
+            {
+              masterCategory: {
+                $regex: search,
+                $options: "i",
+              },
+            },
+            {
+              baseColour: {
+                $regex: search,
+                $options: "i",
+              },
+            },
+            {
+              gender: {
+                $regex: search,
+                $options: "i",
+              },
+            },
+            {
+              usage: {
+                $regex: search,
+                $options: "i",
+              },
+            },
+          ],
+        }
+      : {};
 
     const skip = (page - 1) * limit;
 
     const [items, totalItems] = await Promise.all([
-      ClothingItem.find({})
+      ClothingItem.find(filter)
         .sort({ id: 1 })
         .skip(skip)
         .limit(limit)
         .lean(),
 
-      ClothingItem.countDocuments({}),
+      ClothingItem.countDocuments(filter),
     ]);
 
     res.json({
       status: "Success",
       page,
       limit,
+      search,
       totalItems,
-      totalPages: Math.ceil(totalItems / limit),
+      totalPages: Math.max(Math.ceil(totalItems / limit), 1),
       items,
     });
   } catch (error) {
@@ -150,7 +204,9 @@ app.get("/api/agent/similar/:id", async (req, res) => {
       });
     }
 
-    const parentItem = await ClothingItem.findOne({ id: itemId }).lean();
+    const parentItem = await ClothingItem.findOne({
+      id: itemId,
+    }).lean();
 
     if (!parentItem) {
       return res.status(404).json({
@@ -159,7 +215,9 @@ app.get("/api/agent/similar/:id", async (req, res) => {
     }
 
     const recommendations = await ClothingItem.find({
-      id: { $ne: parentItem.id },
+      id: {
+        $ne: parentItem.id,
+      },
       subCategory: parentItem.subCategory,
       articleType: parentItem.articleType,
     })
@@ -197,7 +255,9 @@ app.post("/api/recommendation", async (req, res) => {
     }
 
     const items = await ClothingItem.find({
-      baseColour: { $in: targetColors },
+      baseColour: {
+        $in: targetColors,
+      },
     })
       .limit(12)
       .lean();
@@ -216,7 +276,7 @@ app.post("/api/recommendation", async (req, res) => {
   }
 });
 
-// -------------------- AUTHENTICATION --------------------
+// -------------------- REGISTER --------------------
 
 app.post("/api/auth/register", async (req, res) => {
   try {
@@ -260,6 +320,8 @@ app.post("/api/auth/register", async (req, res) => {
   }
 });
 
+// -------------------- LOGIN --------------------
+
 app.post("/api/auth/login", async (req, res) => {
   try {
     const { username, password } = req.body;
@@ -293,7 +355,7 @@ app.post("/api/auth/login", async (req, res) => {
 
 // -------------------- START SERVER --------------------
 
-const PORT = process.env.PORT || 5000;
+const PORT = 5000;
 
 app.listen(PORT, () => {
   console.log(`Vivere server running on port ${PORT}`);

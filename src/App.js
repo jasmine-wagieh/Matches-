@@ -7,42 +7,63 @@ function App() {
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    setLoading(true);
+  const [searchInput, setSearchInput] = useState("");
+  const [activeSearch, setActiveSearch] = useState("");
 
-    fetch(`http://localhost:5000/api/items?page=${page}&limit=12`)
-      .then((res) => {
-        if (!res.ok) {
-          throw new Error("Failed to load items");
+  useEffect(() => {
+    const loadItems = async () => {
+      setLoading(true);
+
+      try {
+        const query = new URLSearchParams({
+          page: page.toString(),
+          limit: "12",
+          search: activeSearch,
+        });
+
+        const response = await fetch(
+          `http://localhost:5000/api/items?${query.toString()}`
+        );
+
+        if (!response.ok) {
+          throw new Error("Failed to load clothing items.");
         }
 
-        return res.json();
-      })
-      .then((data) => {
+        const data = await response.json();
+
         setItems(data.items || []);
         setTotalPages(data.totalPages || 1);
-      })
-      .catch((error) => {
+      } catch (error) {
         console.error("Error loading items:", error);
         setItems([]);
-      })
-      .finally(() => {
+      } finally {
         setLoading(false);
-      });
-  }, [page]);
+      }
+    };
+
+    loadItems();
+  }, [page, activeSearch]);
+
+  const handleSearch = (event) => {
+    event.preventDefault();
+    setPage(1);
+    setActiveSearch(searchInput.trim());
+  };
+
+  const handleClearSearch = () => {
+    setSearchInput("");
+    setActiveSearch("");
+    setPage(1);
+  };
 
   const handlePrevious = () => {
-    if (page > 1) {
-      setPage(page - 1);
-      window.scrollTo({ top: 0, behavior: "smooth" });
-    }
+    setPage((currentPage) => Math.max(currentPage - 1, 1));
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const handleNext = () => {
-    if (page < totalPages) {
-      setPage(page + 1);
-      window.scrollTo({ top: 0, behavior: "smooth" });
-    }
+    setPage((currentPage) => Math.min(currentPage + 1, totalPages));
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const handleImageError = (event) => {
@@ -63,10 +84,41 @@ function App() {
       </header>
 
       <main>
+        <form className="search-section" onSubmit={handleSearch}>
+          <input
+            type="search"
+            placeholder="Search black tops, dresses, shoes..."
+            value={searchInput}
+            onChange={(event) => setSearchInput(event.target.value)}
+          />
+
+          <button type="submit" className="search-button">
+            Search
+          </button>
+
+          {activeSearch && (
+            <button
+              type="button"
+              className="clear-button"
+              onClick={handleClearSearch}
+            >
+              Clear
+            </button>
+          )}
+        </form>
+
+        {activeSearch && !loading && (
+          <p className="search-summary">
+            Showing results for <strong>“{activeSearch}”</strong>
+          </p>
+        )}
+
         {loading ? (
           <p className="status-message">Loading fashion items...</p>
         ) : items.length === 0 ? (
-          <p className="status-message">No clothing items found.</p>
+          <p className="status-message">
+            No clothing items matched your search.
+          </p>
         ) : (
           <section className="product-grid">
             {items.map((item) => (
@@ -103,7 +155,9 @@ function App() {
                     <button
                       className="similar-button"
                       onClick={() =>
-                        alert(`Finding items similar to ${item.productDisplayName}`)
+                        alert(
+                          `Finding products similar to ${item.productDisplayName}`
+                        )
                       }
                     >
                       Find similar
@@ -115,19 +169,21 @@ function App() {
           </section>
         )}
 
-        <div className="pagination">
-          <button onClick={handlePrevious} disabled={page === 1}>
-            Previous
-          </button>
+        {!loading && items.length > 0 && (
+          <div className="pagination">
+            <button onClick={handlePrevious} disabled={page === 1}>
+              Previous
+            </button>
 
-          <span>
-            Page {page} of {totalPages}
-          </span>
+            <span>
+              Page {page} of {totalPages}
+            </span>
 
-          <button onClick={handleNext} disabled={page === totalPages}>
-            Next
-          </button>
-        </div>
+            <button onClick={handleNext} disabled={page === totalPages}>
+              Next
+            </button>
+          </div>
+        )}
       </main>
     </div>
   );
