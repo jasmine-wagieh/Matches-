@@ -108,13 +108,36 @@ function App() {
     setUser(null);
   };
 
-  const handleLike = (item) => {
+  const handleLike = async (item) => {
     if (!user) {
       setShowAuth(true);
       return;
     }
 
-    alert(`${item.productDisplayName} added to favourites`);
+    try {
+      const response = await fetch(
+        `http://localhost:5000/api/users/${user.userId}/likes/${item.id}`,
+        {
+          method: "POST",
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Unable to update favourites.");
+      }
+
+      const updatedUser = {
+        ...user,
+        likedItems: data.likedItems || [],
+      };
+
+      setUser(updatedUser);
+      localStorage.setItem("vivereUser", JSON.stringify(updatedUser));
+    } catch (error) {
+      alert(error.message);
+    }
   };
 
   return (
@@ -249,51 +272,57 @@ function App() {
           </p>
         ) : (
           <section className="product-grid">
-            {items.map((item) => (
-              <article className="product-card" key={item.id}>
-                <div className="image-placeholder">
-                  <img
-                    src={`/images/${item.id}.jpg`}
-                    alt={item.productDisplayName}
-                    onError={handleImageError}
-                  />
-                </div>
+            {items.map((item) => {
+              const isLiked = user?.likedItems?.includes(item.id);
 
-                <div className="product-content">
-                  <p className="product-category">{item.subCategory}</p>
-
-                  <h2>{item.productDisplayName}</h2>
-
-                  <div className="product-details">
-                    <span>{item.baseColour}</span>
-                    <span>{item.articleType}</span>
-                    <span>{item.gender}</span>
+              return (
+                <article className="product-card" key={item.id}>
+                  <div className="image-placeholder">
+                    <img
+                      src={`/images/${item.id}.jpg`}
+                      alt={item.productDisplayName}
+                      onError={handleImageError}
+                    />
                   </div>
 
-                  <div className="card-actions">
-                    <button
-                      type="button"
-                      className="like-button"
-                      onClick={() => handleLike(item)}
-                    >
-                      ♡ Like
-                    </button>
+                  <div className="product-content">
+                    <p className="product-category">{item.subCategory}</p>
 
-                    <button
-                      type="button"
-                      className="similar-button"
-                      onClick={() =>
-                        alert(
-                          `Finding products similar to ${item.productDisplayName}`
-                        )
-                      }
-                    >
-                      Find similar
-                    </button>
+                    <h2>{item.productDisplayName}</h2>
+
+                    <div className="product-details">
+                      <span>{item.baseColour}</span>
+                      <span>{item.articleType}</span>
+                      <span>{item.gender}</span>
+                    </div>
+
+                    <div className="card-actions">
+                      <button
+                        type="button"
+                        className={
+                          isLiked ? "like-button liked" : "like-button"
+                        }
+                        onClick={() => handleLike(item)}
+                      >
+                        {isLiked ? "♥ Liked" : "♡ Like"}
+                      </button>
+
+                      <button
+                        type="button"
+                        className="similar-button"
+                        onClick={() =>
+                          alert(
+                            `Finding products similar to ${item.productDisplayName}`
+                          )
+                        }
+                      >
+                        Find similar
+                      </button>
+                    </div>
                   </div>
-                </div>
-              </article>
-            ))}
+                </article>
+              );
+            })}
           </section>
         )}
 

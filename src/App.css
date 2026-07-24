@@ -424,3 +424,8 @@ main {
     padding: 28px 22px;
   }
 }
+.like-button.liked {
+  border-color: #111;
+  background: #111;
+  color: white;
+}

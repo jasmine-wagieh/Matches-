@@ -372,6 +372,52 @@ app.post("/api/auth/login", async (req, res) => {
   }
 });
 
+// -------------------- LIKE OR UNLIKE ITEM --------------------
+
+app.post("/api/users/:userId/likes/:itemId", async (req, res) => {
+  try {
+    const userId = req.params.userId;
+    const itemId = Number.parseInt(req.params.itemId, 10);
+
+    if (Number.isNaN(itemId)) {
+      return res.status(400).json({
+        error: "Invalid item ID.",
+      });
+    }
+
+    const user = await User.findById(userId);
+
+    if (!user) {
+      return res.status(404).json({
+        error: "User not found.",
+      });
+    }
+
+    const alreadyLiked = user.likedItems.includes(itemId);
+
+    if (alreadyLiked) {
+      user.likedItems = user.likedItems.filter(
+        (likedItemId) => likedItemId !== itemId
+      );
+    } else {
+      user.likedItems.push(itemId);
+    }
+
+    await user.save();
+
+    res.json({
+      status: "Success",
+      liked: !alreadyLiked,
+      likedItems: user.likedItems,
+    });
+  } catch (error) {
+    console.error("Like error:", error);
+
+    res.status(500).json({
+      error: "Unable to update liked items.",
+    });
+  }
+});
 // -------------------- START SERVER --------------------
 
 const PORT = 5000;
