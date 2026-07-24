@@ -3,6 +3,8 @@ const mongoose = require("mongoose");
 const cors = require("cors");
 require("dotenv").config();
 
+const User = require("./models/User");
+
 const app = express();
 
 app.use(cors());
@@ -19,7 +21,7 @@ mongoose
     console.error("Database connection error:", error);
   });
 
-// -------------------- MODELS --------------------
+// -------------------- CLOTHING MODEL --------------------
 
 const clothingItemSchema = new mongoose.Schema(
   {
@@ -40,22 +42,6 @@ const clothingItemSchema = new mongoose.Schema(
 );
 
 const ClothingItem = mongoose.model("ClothingItem", clothingItemSchema);
-
-const userSchema = new mongoose.Schema({
-  username: {
-    type: String,
-    required: true,
-    unique: true,
-  },
-  password: {
-    type: String,
-    required: true,
-  },
-  savedAesthetics: [String],
-  likedItems: [Number],
-});
-
-const User = mongoose.model("User", userSchema);
 
 // -------------------- TEST ROUTE --------------------
 
@@ -169,7 +155,8 @@ app.get("/api/items", async (req, res) => {
       error: "Unable to load filtered clothing items.",
     });
   }
-})
+});
+
 // -------------------- SINGLE ITEM --------------------
 
 app.get("/api/items/:id", async (req, res) => {
@@ -291,26 +278,34 @@ app.post("/api/recommendation", async (req, res) => {
 
 app.post("/api/auth/register", async (req, res) => {
   try {
-    const { username, password } = req.body;
+    const { username, email, password } = req.body;
 
-    if (!username || !password) {
+    if (!username || !email || !password) {
       return res.status(400).json({
-        error: "Username and password are required.",
+        error: "Username, email and password are required.",
       });
     }
 
-    const existingUser = await User.findOne({ username });
+    const normalizedUsername = username.trim();
+    const normalizedEmail = email.trim().toLowerCase();
+
+    const existingUser = await User.findOne({
+      $or: [
+        { username: normalizedUsername },
+        { email: normalizedEmail },
+      ],
+    });
 
     if (existingUser) {
       return res.status(400).json({
-        error: "Username already exists.",
+        error: "Username or email already exists.",
       });
     }
 
     const user = new User({
-      username,
+      username: normalizedUsername,
+      email: normalizedEmail,
       password,
-      savedAesthetics: [],
       likedItems: [],
     });
 
@@ -321,6 +316,8 @@ app.post("/api/auth/register", async (req, res) => {
       message: "User registered successfully.",
       userId: user._id,
       username: user.username,
+      email: user.email,
+      likedItems: user.likedItems,
     });
   } catch (error) {
     console.error("Registration error:", error);
@@ -335,16 +332,27 @@ app.post("/api/auth/register", async (req, res) => {
 
 app.post("/api/auth/login", async (req, res) => {
   try {
-    const { username, password } = req.body;
+    const { usernameOrEmail, password } = req.body;
+
+    if (!usernameOrEmail || !password) {
+      return res.status(400).json({
+        error: "Username or email and password are required.",
+      });
+    }
+
+    const loginValue = usernameOrEmail.trim();
 
     const user = await User.findOne({
-      username,
+      $or: [
+        { username: loginValue },
+        { email: loginValue.toLowerCase() },
+      ],
       password,
     });
 
     if (!user) {
       return res.status(401).json({
-        error: "Invalid username or password.",
+        error: "Invalid login details.",
       });
     }
 
@@ -352,8 +360,8 @@ app.post("/api/auth/login", async (req, res) => {
       status: "Success",
       userId: user._id,
       username: user.username,
+      email: user.email,
       likedItems: user.likedItems,
-      savedAesthetics: user.savedAesthetics,
     });
   } catch (error) {
     console.error("Login error:", error);

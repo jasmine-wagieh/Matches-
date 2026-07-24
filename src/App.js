@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import "./App.css";
+import AuthPage from "./components/AuthPage";
 
 function App() {
   const [items, setItems] = useState([]);
@@ -14,6 +15,17 @@ function App() {
   const [colour, setColour] = useState("");
   const [season, setSeason] = useState("");
   const [usage, setUsage] = useState("");
+
+  const [user, setUser] = useState(() => {
+    try {
+      const savedUser = localStorage.getItem("vivereUser");
+      return savedUser ? JSON.parse(savedUser) : null;
+    } catch {
+      return null;
+    }
+  });
+
+  const [showAuth, setShowAuth] = useState(false);
 
   useEffect(() => {
     const loadItems = async () => {
@@ -45,6 +57,7 @@ function App() {
       } catch (error) {
         console.error("Error loading items:", error);
         setItems([]);
+        setTotalPages(1);
       } finally {
         setLoading(false);
       }
@@ -90,6 +103,20 @@ function App() {
       "https://placehold.co/400x500?text=Image+Unavailable";
   };
 
+  const handleLogout = () => {
+    localStorage.removeItem("vivereUser");
+    setUser(null);
+  };
+
+  const handleLike = (item) => {
+    if (!user) {
+      setShowAuth(true);
+      return;
+    }
+
+    alert(`${item.productDisplayName} added to favourites`);
+  };
+
   return (
     <div className="app">
       <header className="header">
@@ -98,7 +125,22 @@ function App() {
           <p>Discover fashion selected for your style.</p>
         </div>
 
-        <button className="profile-button">Profile</button>
+        {user ? (
+          <div className="user-controls">
+            <span>Hello, {user.username}</span>
+
+            <button className="profile-button" onClick={handleLogout}>
+              Log out
+            </button>
+          </div>
+        ) : (
+          <button
+            className="profile-button"
+            onClick={() => setShowAuth(true)}
+          >
+            Log in
+          </button>
+        )}
       </header>
 
       <main>
@@ -230,15 +272,15 @@ function App() {
 
                   <div className="card-actions">
                     <button
+                      type="button"
                       className="like-button"
-                      onClick={() =>
-                        alert(`${item.productDisplayName} added to favourites`)
-                      }
+                      onClick={() => handleLike(item)}
                     >
                       ♡ Like
                     </button>
 
                     <button
+                      type="button"
                       className="similar-button"
                       onClick={() =>
                         alert(
@@ -271,6 +313,16 @@ function App() {
           </div>
         )}
       </main>
+
+      {showAuth && (
+        <AuthPage
+          onLogin={(loggedInUser) => {
+            setUser(loggedInUser);
+            setShowAuth(false);
+          }}
+          onClose={() => setShowAuth(false)}
+        />
+      )}
     </div>
   );
 }
