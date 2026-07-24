@@ -10,6 +10,11 @@ function App() {
   const [searchInput, setSearchInput] = useState("");
   const [activeSearch, setActiveSearch] = useState("");
 
+  const [gender, setGender] = useState("");
+  const [colour, setColour] = useState("");
+  const [season, setSeason] = useState("");
+  const [usage, setUsage] = useState("");
+
   useEffect(() => {
     const loadItems = async () => {
       setLoading(true);
@@ -19,6 +24,10 @@ function App() {
           page: page.toString(),
           limit: "12",
           search: activeSearch,
+          gender,
+          colour,
+          season,
+          usage,
         });
 
         const response = await fetch(
@@ -42,7 +51,7 @@ function App() {
     };
 
     loadItems();
-  }, [page, activeSearch]);
+  }, [page, activeSearch, gender, colour, season, usage]);
 
   const handleSearch = (event) => {
     event.preventDefault();
@@ -50,9 +59,18 @@ function App() {
     setActiveSearch(searchInput.trim());
   };
 
-  const handleClearSearch = () => {
+  const handleClear = () => {
     setSearchInput("");
     setActiveSearch("");
+    setGender("");
+    setColour("");
+    setSeason("");
+    setUsage("");
+    setPage(1);
+  };
+
+  const handleFilterChange = (setter, value) => {
+    setter(value);
     setPage(1);
   };
 
@@ -96,20 +114,88 @@ function App() {
             Search
           </button>
 
-          {activeSearch && (
-            <button
-              type="button"
-              className="clear-button"
-              onClick={handleClearSearch}
-            >
-              Clear
-            </button>
-          )}
+          <button
+            type="button"
+            className="clear-button"
+            onClick={handleClear}
+          >
+            Clear
+          </button>
         </form>
 
-        {activeSearch && !loading && (
+        <section className="filter-section">
+          <select
+            value={gender}
+            onChange={(event) =>
+              handleFilterChange(setGender, event.target.value)
+            }
+          >
+            <option value="">All genders</option>
+            <option value="Women">Women</option>
+            <option value="Men">Men</option>
+            <option value="Girls">Girls</option>
+            <option value="Boys">Boys</option>
+            <option value="Unisex">Unisex</option>
+          </select>
+
+          <select
+            value={colour}
+            onChange={(event) =>
+              handleFilterChange(setColour, event.target.value)
+            }
+          >
+            <option value="">All colours</option>
+            <option value="Black">Black</option>
+            <option value="White">White</option>
+            <option value="Blue">Blue</option>
+            <option value="Navy Blue">Navy Blue</option>
+            <option value="Grey">Grey</option>
+            <option value="Red">Red</option>
+            <option value="Pink">Pink</option>
+            <option value="Green">Green</option>
+            <option value="Brown">Brown</option>
+            <option value="Beige">Beige</option>
+            <option value="Purple">Purple</option>
+            <option value="Yellow">Yellow</option>
+          </select>
+
+          <select
+            value={season}
+            onChange={(event) =>
+              handleFilterChange(setSeason, event.target.value)
+            }
+          >
+            <option value="">All seasons</option>
+            <option value="Summer">Summer</option>
+            <option value="Winter">Winter</option>
+            <option value="Fall">Fall</option>
+            <option value="Spring">Spring</option>
+          </select>
+
+          <select
+            value={usage}
+            onChange={(event) =>
+              handleFilterChange(setUsage, event.target.value)
+            }
+          >
+            <option value="">All uses</option>
+            <option value="Casual">Casual</option>
+            <option value="Formal">Formal</option>
+            <option value="Sports">Sports</option>
+            <option value="Travel">Travel</option>
+            <option value="Ethnic">Ethnic</option>
+          </select>
+        </section>
+
+        {(activeSearch || gender || colour || season || usage) && !loading && (
           <p className="search-summary">
-            Showing results for <strong>“{activeSearch}”</strong>
+            Showing filtered results
+            {activeSearch && (
+              <>
+                {" "}
+                for <strong>“{activeSearch}”</strong>
+              </>
+            )}
           </p>
         )}
 
@@ -117,7 +203,7 @@ function App() {
           <p className="status-message">Loading fashion items...</p>
         ) : items.length === 0 ? (
           <p className="status-message">
-            No clothing items matched your search.
+            No clothing items matched your filters.
           </p>
         ) : (
           <section className="product-grid">

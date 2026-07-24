@@ -66,7 +66,7 @@ app.get("/", (req, res) => {
   });
 });
 
-// -------------------- ITEMS, SEARCH AND PAGINATION --------------------
+// -------------------- ITEMS, SEARCH, FILTERS AND PAGINATION --------------------
 
 app.get("/api/items", async (req, res) => {
   try {
@@ -78,66 +78,71 @@ app.get("/api/items", async (req, res) => {
     );
 
     const search = (req.query.search || "").trim();
+    const gender = (req.query.gender || "").trim();
+    const category = (req.query.category || "").trim();
+    const colour = (req.query.colour || "").trim();
+    const season = (req.query.season || "").trim();
+    const usage = (req.query.usage || "").trim();
 
-    const filter = search
-      ? {
-          $or: [
-            {
-              productDisplayName: {
-                $regex: search,
-                $options: "i",
-              },
-            },
-            {
-              articleType: {
-                $regex: search,
-                $options: "i",
-              },
-            },
-            {
-              subCategory: {
-                $regex: search,
-                $options: "i",
-              },
-            },
-            {
-              masterCategory: {
-                $regex: search,
-                $options: "i",
-              },
-            },
-            {
-              baseColour: {
-                $regex: search,
-                $options: "i",
-              },
-            },
-            {
-              gender: {
-                $regex: search,
-                $options: "i",
-              },
-            },
-            {
-              usage: {
-                $regex: search,
-                $options: "i",
-              },
-            },
-          ],
-        }
-      : {};
+    const filters = [];
+
+    if (search) {
+      filters.push({
+        $or: [
+          { productDisplayName: { $regex: search, $options: "i" } },
+          { articleType: { $regex: search, $options: "i" } },
+          { subCategory: { $regex: search, $options: "i" } },
+          { masterCategory: { $regex: search, $options: "i" } },
+          { baseColour: { $regex: search, $options: "i" } },
+          { gender: { $regex: search, $options: "i" } },
+          { usage: { $regex: search, $options: "i" } },
+        ],
+      });
+    }
+
+    if (gender) {
+      filters.push({ gender });
+    }
+
+    if (category) {
+      filters.push({
+        $or: [
+          { masterCategory: category },
+          { subCategory: category },
+          { articleType: category },
+        ],
+      });
+    }
+
+    if (colour) {
+      filters.push({ baseColour: colour });
+    }
+
+    if (season) {
+      filters.push({ season });
+    }
+
+    if (usage) {
+      filters.push({ usage });
+    }
+
+    const databaseFilter =
+      filters.length > 0
+        ? {
+            $and: filters,
+          }
+        : {};
 
     const skip = (page - 1) * limit;
 
     const [items, totalItems] = await Promise.all([
-      ClothingItem.find(filter)
+      ClothingItem.find(databaseFilter)
         .sort({ id: 1 })
         .skip(skip)
         .limit(limit)
         .lean(),
 
-      ClothingItem.countDocuments(filter),
+      ClothingItem.countDocuments(databaseFilter),
     ]);
 
     res.json({
@@ -145,20 +150,26 @@ app.get("/api/items", async (req, res) => {
       page,
       limit,
       search,
+      filters: {
+        gender,
+        category,
+        colour,
+        season,
+        usage,
+      },
       totalItems,
       totalPages: Math.max(Math.ceil(totalItems / limit), 1),
       items,
     });
   } catch (error) {
-    console.error("Feed error:", error);
+    console.error("Feed and filter error:", error);
 
     res.status(500).json({
       status: "Error",
-      error: "Unable to load clothing items.",
+      error: "Unable to load filtered clothing items.",
     });
   }
-});
-
+})
 // -------------------- SINGLE ITEM --------------------
 
 app.get("/api/items/:id", async (req, res) => {
