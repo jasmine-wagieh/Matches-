@@ -41,7 +41,48 @@ const clothingItemSchema = new mongoose.Schema(
   }
 );
 
-const ClothingItem = mongoose.model("ClothingItem", clothingItemSchema);
+const ClothingItem = mongoose.model(
+  "ClothingItem",
+  clothingItemSchema
+);
+
+// -------------------- HELPERS --------------------
+
+const escapeRegex = (value) =>
+  value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+const normalise = (value) =>
+  String(value || "")
+    .trim()
+    .toLowerCase();
+
+const matchesText = (actualValue, selectedValue) => {
+  const actual = normalise(actualValue);
+  const selected = normalise(selectedValue);
+
+  if (!selected) {
+    return false;
+  }
+
+  return actual === selected ||
+    actual.includes(selected) ||
+    selected.includes(actual);
+};
+
+const shuffle = (array) => {
+  const result = [...array];
+
+  for (let index = result.length - 1; index > 0; index -= 1) {
+    const randomIndex = Math.floor(Math.random() * (index + 1));
+
+    [result[index], result[randomIndex]] = [
+      result[randomIndex],
+      result[index],
+    ];
+  }
+
+  return result;
+};
 
 // -------------------- TEST ROUTE --------------------
 
@@ -56,32 +97,44 @@ app.get("/", (req, res) => {
 
 app.get("/api/items", async (req, res) => {
   try {
-    const page = Math.max(Number.parseInt(req.query.page, 10) || 1, 1);
+    const page = Math.max(
+      Number.parseInt(req.query.page, 10) || 1,
+      1
+    );
 
     const limit = Math.min(
-      Math.max(Number.parseInt(req.query.limit, 10) || 12, 1),
+      Math.max(
+        Number.parseInt(req.query.limit, 10) || 12,
+        1
+      ),
       100
     );
 
-    const search = (req.query.search || "").trim();
-    const gender = (req.query.gender || "").trim();
-    const category = (req.query.category || "").trim();
-    const colour = (req.query.colour || "").trim();
-    const season = (req.query.season || "").trim();
-    const usage = (req.query.usage || "").trim();
+    const search = String(req.query.search || "").trim();
+    const gender = String(req.query.gender || "").trim();
+    const category = String(req.query.category || "").trim();
+    const colour = String(req.query.colour || "").trim();
+    const season = String(req.query.season || "").trim();
+    const usage = String(req.query.usage || "").trim();
 
     const filters = [];
 
     if (search) {
+      const searchRegex = new RegExp(
+        escapeRegex(search),
+        "i"
+      );
+
       filters.push({
         $or: [
-          { productDisplayName: { $regex: search, $options: "i" } },
-          { articleType: { $regex: search, $options: "i" } },
-          { subCategory: { $regex: search, $options: "i" } },
-          { masterCategory: { $regex: search, $options: "i" } },
-          { baseColour: { $regex: search, $options: "i" } },
-          { gender: { $regex: search, $options: "i" } },
-          { usage: { $regex: search, $options: "i" } },
+          { productDisplayName: searchRegex },
+          { articleType: searchRegex },
+          { subCategory: searchRegex },
+          { masterCategory: searchRegex },
+          { baseColour: searchRegex },
+          { gender: searchRegex },
+          { usage: searchRegex },
+          { season: searchRegex },
         ],
       });
     }
@@ -114,9 +167,7 @@ app.get("/api/items", async (req, res) => {
 
     const databaseFilter =
       filters.length > 0
-        ? {
-            $and: filters,
-          }
+        ? { $and: filters }
         : {};
 
     const skip = (page - 1) * limit;
@@ -144,7 +195,10 @@ app.get("/api/items", async (req, res) => {
         usage,
       },
       totalItems,
-      totalPages: Math.max(Math.ceil(totalItems / limit), 1),
+      totalPages: Math.max(
+        Math.ceil(totalItems / limit),
+        1
+      ),
       items,
     });
   } catch (error) {
@@ -152,7 +206,7 @@ app.get("/api/items", async (req, res) => {
 
     res.status(500).json({
       status: "Error",
-      error: "Unable to load filtered clothing items.",
+      error: "Unable to load clothing items.",
     });
   }
 });
@@ -161,7 +215,10 @@ app.get("/api/items", async (req, res) => {
 
 app.get("/api/items/:id", async (req, res) => {
   try {
-    const itemId = Number.parseInt(req.params.id, 10);
+    const itemId = Number.parseInt(
+      req.params.id,
+      10
+    );
 
     if (Number.isNaN(itemId)) {
       return res.status(400).json({
@@ -169,7 +226,9 @@ app.get("/api/items/:id", async (req, res) => {
       });
     }
 
-    const item = await ClothingItem.findOne({ id: itemId }).lean();
+    const item = await ClothingItem.findOne({
+      id: itemId,
+    }).lean();
 
     if (!item) {
       return res.status(404).json({
@@ -177,14 +236,14 @@ app.get("/api/items/:id", async (req, res) => {
       });
     }
 
-    res.json({
+    return res.json({
       status: "Success",
       item,
     });
   } catch (error) {
     console.error("Item error:", error);
 
-    res.status(500).json({
+    return res.status(500).json({
       error: "Unable to load this item.",
     });
   }
@@ -194,7 +253,10 @@ app.get("/api/items/:id", async (req, res) => {
 
 app.get("/api/agent/similar/:id", async (req, res) => {
   try {
-    const itemId = Number.parseInt(req.params.id, 10);
+    const itemId = Number.parseInt(
+      req.params.id,
+      10
+    );
 
     if (Number.isNaN(itemId)) {
       return res.status(400).json({
@@ -212,17 +274,65 @@ app.get("/api/agent/similar/:id", async (req, res) => {
       });
     }
 
-    const recommendations = await ClothingItem.find({
-      id: {
-        $ne: parentItem.id,
-      },
-      subCategory: parentItem.subCategory,
-      articleType: parentItem.articleType,
+    const candidates = await ClothingItem.find({
+      id: { $ne: parentItem.id },
+      gender: parentItem.gender,
+      $or: [
+        { articleType: parentItem.articleType },
+        { subCategory: parentItem.subCategory },
+      ],
     })
-      .limit(6)
+      .limit(300)
       .lean();
 
-    res.json({
+    const scoredCandidates = candidates
+      .map((item) => {
+        let score = 0;
+
+        if (item.articleType === parentItem.articleType) {
+          score += 5;
+        }
+
+        if (item.subCategory === parentItem.subCategory) {
+          score += 3;
+        }
+
+        if (item.baseColour === parentItem.baseColour) {
+          score += 2;
+        }
+
+        if (item.usage === parentItem.usage) {
+          score += 2;
+        }
+
+        if (item.season === parentItem.season) {
+          score += 1;
+        }
+
+        return {
+          ...item,
+          similarityScore: score,
+        };
+      })
+      .sort((firstItem, secondItem) =>
+        secondItem.similarityScore -
+        firstItem.similarityScore
+      );
+
+    const topScore =
+      scoredCandidates[0]?.similarityScore || 0;
+
+    const strongestMatches = scoredCandidates.filter(
+      (item) =>
+        item.similarityScore >=
+        Math.max(topScore - 2, 1)
+    );
+
+    const recommendations = shuffle(
+      strongestMatches
+    ).slice(0, 6);
+
+    return res.json({
       status: "Success",
       parentItem,
       recommendations,
@@ -230,46 +340,218 @@ app.get("/api/agent/similar/:id", async (req, res) => {
   } catch (error) {
     console.error("Similarity error:", error);
 
-    res.status(500).json({
+    return res.status(500).json({
       error: "Unable to find similar items.",
     });
   }
 });
 
-// -------------------- RECOMMENDATIONS --------------------
+// -------------------- PERSONAL STYLIST --------------------
 
 app.post("/api/recommendation", async (req, res) => {
   try {
-    const { colorPalette, aesthetic } = req.body;
+    const {
+      gender = "",
+      colours = [],
+      usage = "",
+      season = "",
+      articleTypes = [],
+    } = req.body;
 
-    let targetColors = ["Black", "White", "Grey"];
+    console.log("STYLIST REQUEST:", {
+      gender,
+      colours,
+      usage,
+      season,
+      articleTypes,
+    });
 
-    if (colorPalette === "Warm Autumn") {
-      targetColors = ["Brown", "Beige", "Tan", "Olive"];
+    const safeColours = Array.isArray(colours)
+      ? colours.filter(Boolean)
+      : [];
+
+    const safeArticleTypes = Array.isArray(
+      articleTypes
+    )
+      ? articleTypes.filter(Boolean)
+      : [];
+
+    /*
+      Gender is used as the broad candidate filter because
+      recommending products for a different gender is usually
+      undesirable. The other preferences are scored so that
+      results do not become empty when the form is restrictive.
+    */
+    const candidateFilter = {};
+
+    if (gender) {
+      candidateFilter.gender = gender;
     }
 
-    if (colorPalette === "Cool Winter") {
-      targetColors = ["Blue", "Navy Blue", "Purple", "Black"];
-    }
-
-    const items = await ClothingItem.find({
-      baseColour: {
-        $in: targetColors,
-      },
-    })
-      .limit(12)
+    let candidateItems = await ClothingItem.find(
+      candidateFilter
+    )
       .lean();
 
-    res.json({
+    /*
+      Fallback for dataset values such as "Unisex".
+      If an exact gender gives too few candidates, include
+      unisex products as well.
+    */
+    if (gender && candidateItems.length < 100) {
+      candidateItems = await ClothingItem.find({
+        gender: {
+          $in: [gender, "Unisex"],
+        },
+      }).lean();
+    }
+
+    const hasPreferences =
+      Boolean(gender) ||
+      safeColours.length > 0 ||
+      Boolean(usage) ||
+      Boolean(season) ||
+      safeArticleTypes.length > 0;
+
+    const scoredItems = candidateItems.map((item) => {
+      let score = 0;
+      const matchedPreferences = [];
+
+      if (gender && matchesText(item.gender, gender)) {
+        score += 3;
+        matchedPreferences.push("gender");
+      }
+
+      const matchingColour = safeColours.some(
+        (selectedColour) =>
+          matchesText(
+            item.baseColour,
+            selectedColour
+          )
+      );
+
+      if (matchingColour) {
+        score += 5;
+        matchedPreferences.push("colour");
+      }
+
+      if (usage && matchesText(item.usage, usage)) {
+        score += 4;
+        matchedPreferences.push("occasion");
+      }
+
+      if (
+        season &&
+        matchesText(item.season, season)
+      ) {
+        score += 3;
+        matchedPreferences.push("season");
+      }
+
+      const matchingArticleType =
+        safeArticleTypes.some(
+          (selectedType) =>
+            matchesText(
+              item.articleType,
+              selectedType
+            ) ||
+            matchesText(
+              item.subCategory,
+              selectedType
+            ) ||
+            matchesText(
+              item.masterCategory,
+              selectedType
+            )
+        );
+
+      if (matchingArticleType) {
+        score += 7;
+        matchedPreferences.push("item type");
+      }
+
+      return {
+        ...item,
+        recommendationScore: score,
+        matchedPreferences,
+      };
+    });
+
+    /*
+      Require at least one meaningful match. Gender by itself is
+      kept as a valid match, but colour/type matches rank higher.
+    */
+    const matchedItems = scoredItems.filter(
+      (item) =>
+        !hasPreferences ||
+        item.recommendationScore > 0
+    );
+
+    const sortedItems = matchedItems.sort(
+      (firstItem, secondItem) =>
+        secondItem.recommendationScore -
+        firstItem.recommendationScore
+    );
+
+    /*
+      Randomise among products with the strongest scores so a
+      repeated request does not always display the same 12 IDs.
+    */
+    const highestScore =
+      sortedItems[0]?.recommendationScore || 0;
+
+    let recommendationPool = sortedItems.filter(
+      (item) =>
+        item.recommendationScore >=
+        Math.max(highestScore - 2, 1)
+    );
+
+    if (recommendationPool.length < 12) {
+      recommendationPool = sortedItems.slice(0, 150);
+    }
+
+    let finalItems = shuffle(
+      recommendationPool
+    ).slice(0, 12);
+
+    /*
+      If no preference produced matches, return a random sample
+      rather than repeatedly returning the first 12 database rows.
+    */
+    if (finalItems.length === 0) {
+      finalItems = await ClothingItem.aggregate([
+        {
+          $match: candidateFilter,
+        },
+        {
+          $sample: {
+            size: 12,
+          },
+        },
+      ]);
+    }
+
+    return res.json({
       status: "Success",
-      message: `Recommendations for ${aesthetic || "selected"} style`,
-      items,
+      totalItems: finalItems.length,
+      preferences: {
+        gender,
+        colours: safeColours,
+        usage,
+        season,
+        articleTypes: safeArticleTypes,
+      },
+      items: finalItems,
     });
   } catch (error) {
-    console.error("Recommendation error:", error);
+    console.error(
+      "Stylist recommendation error:",
+      error
+    );
 
-    res.status(500).json({
-      error: "Unable to generate recommendations.",
+    return res.status(500).json({
+      error:
+        "Unable to generate stylist recommendations.",
     });
   }
 });
@@ -282,12 +564,15 @@ app.post("/api/auth/register", async (req, res) => {
 
     if (!username || !email || !password) {
       return res.status(400).json({
-        error: "Username, email and password are required.",
+        error:
+          "Username, email and password are required.",
       });
     }
 
     const normalizedUsername = username.trim();
-    const normalizedEmail = email.trim().toLowerCase();
+    const normalizedEmail = email
+      .trim()
+      .toLowerCase();
 
     const existingUser = await User.findOne({
       $or: [
@@ -298,7 +583,8 @@ app.post("/api/auth/register", async (req, res) => {
 
     if (existingUser) {
       return res.status(400).json({
-        error: "Username or email already exists.",
+        error:
+          "Username or email already exists.",
       });
     }
 
@@ -311,7 +597,7 @@ app.post("/api/auth/register", async (req, res) => {
 
     await user.save();
 
-    res.status(201).json({
+    return res.status(201).json({
       status: "Success",
       message: "User registered successfully.",
       userId: user._id,
@@ -322,7 +608,7 @@ app.post("/api/auth/register", async (req, res) => {
   } catch (error) {
     console.error("Registration error:", error);
 
-    res.status(500).json({
+    return res.status(500).json({
       error: "Unable to register user.",
     });
   }
@@ -332,15 +618,18 @@ app.post("/api/auth/register", async (req, res) => {
 
 app.post("/api/auth/login", async (req, res) => {
   try {
-    const { usernameOrEmail, password } = req.body;
+    const { usernameOrEmail, password } =
+      req.body;
 
     if (!usernameOrEmail || !password) {
       return res.status(400).json({
-        error: "Username or email and password are required.",
+        error:
+          "Username or email and password are required.",
       });
     }
 
-    const loginValue = usernameOrEmail.trim();
+    const loginValue =
+      usernameOrEmail.trim();
 
     const user = await User.findOne({
       $or: [
@@ -356,17 +645,17 @@ app.post("/api/auth/login", async (req, res) => {
       });
     }
 
-    res.json({
+    return res.json({
       status: "Success",
       userId: user._id,
       username: user.username,
       email: user.email,
-      likedItems: user.likedItems,
+      likedItems: user.likedItems || [],
     });
   } catch (error) {
     console.error("Login error:", error);
 
-    res.status(500).json({
+    return res.status(500).json({
       error: "Unable to log in.",
     });
   }
@@ -374,156 +663,157 @@ app.post("/api/auth/login", async (req, res) => {
 
 // -------------------- LIKE OR UNLIKE ITEM --------------------
 
-
-app.post("/api/users/:userId/likes/:itemId", async (req, res) => {
-  try {
-    const { userId } = req.params;
-    const itemId = Number.parseInt(req.params.itemId, 10);
-
-    if (!mongoose.Types.ObjectId.isValid(userId)) {
-      return res.status(400).json({
-        error: "Invalid user ID.",
-      });
-    }
-
-    if (Number.isNaN(itemId)) {
-      return res.status(400).json({
-        error: "Invalid item ID.",
-      });
-    }
-
-    const user = await User.findById(userId);
-
-    if (!user) {
-      return res.status(404).json({
-        error: "User not found. Please log out and log in again.",
-      });
-    }
-
-    if (!Array.isArray(user.likedItems)) {
-      user.likedItems = [];
-    }
-
-    const alreadyLiked = user.likedItems.some(
-      (likedItemId) => Number(likedItemId) === itemId
-    );
-
-    if (alreadyLiked) {
-      user.likedItems = user.likedItems.filter(
-        (likedItemId) => Number(likedItemId) !== itemId
+app.post(
+  "/api/users/:userId/likes/:itemId",
+  async (req, res) => {
+    try {
+      const { userId } = req.params;
+      const itemId = Number.parseInt(
+        req.params.itemId,
+        10
       );
-    } else {
-      user.likedItems.push(itemId);
-    }
 
-    await user.save();
+      if (
+        !mongoose.Types.ObjectId.isValid(userId)
+      ) {
+        return res.status(400).json({
+          error: "Invalid user ID.",
+        });
+      }
 
-    res.json({
-      status: "Success",
-      liked: !alreadyLiked,
-      likedItems: user.likedItems,
-    });
-  } catch (error) {
-    console.error("Like error:", error);
+      if (Number.isNaN(itemId)) {
+        return res.status(400).json({
+          error: "Invalid item ID.",
+        });
+      }
 
-    res.status(500).json({
-      error: error.message || "Unable to update liked items.",
-    });
-  }
-});
+      const user = await User.findById(userId);
 
-// -------------------- GET USER'S LIKED ITEMS --------------------
+      if (!user) {
+        return res.status(404).json({
+          error:
+            "User not found. Please log in again.",
+        });
+      }
 
-app.get("/api/users/:userId/likes", async (req, res) => {
-  try {
-    const { userId } = req.params;
+      if (!Array.isArray(user.likedItems)) {
+        user.likedItems = [];
+      }
 
-    if (!mongoose.Types.ObjectId.isValid(userId)) {
-      return res.status(400).json({
-        error: "Invalid user ID.",
+      const alreadyLiked = user.likedItems.some(
+        (likedItemId) =>
+          Number(likedItemId) === itemId
+      );
+
+      if (alreadyLiked) {
+        user.likedItems =
+          user.likedItems.filter(
+            (likedItemId) =>
+              Number(likedItemId) !== itemId
+          );
+      } else {
+        user.likedItems.push(itemId);
+      }
+
+      await user.save();
+
+      return res.json({
+        status: "Success",
+        liked: !alreadyLiked,
+        likedItems: user.likedItems,
+      });
+    } catch (error) {
+      console.error("Like error:", error);
+
+      return res.status(500).json({
+        error:
+          error.message ||
+          "Unable to update liked items.",
       });
     }
+  }
+);
 
-    const user = await User.findById(userId).lean();
+// -------------------- GET WISHLIST --------------------
 
-    if (!user) {
-      return res.status(404).json({
-        error: "User not found.",
+app.get(
+  "/api/users/:userId/likes",
+  async (req, res) => {
+    try {
+      const { userId } = req.params;
+
+      if (
+        !mongoose.Types.ObjectId.isValid(userId)
+      ) {
+        return res.status(400).json({
+          error: "Invalid user ID.",
+        });
+      }
+
+      const user = await User.findById(
+        userId
+      ).lean();
+
+      if (!user) {
+        return res.status(404).json({
+          error: "User not found.",
+        });
+      }
+
+      const likedItemIds = Array.isArray(
+        user.likedItems
+      )
+        ? user.likedItems
+        : [];
+
+      const items = await ClothingItem.find({
+        id: {
+          $in: likedItemIds,
+        },
+      }).lean();
+
+      /*
+        Preserve the order in which the user liked the products.
+      */
+      const itemMap = new Map(
+        items.map((item) => [item.id, item])
+      );
+
+      const orderedItems = likedItemIds
+        .map((itemId) =>
+          itemMap.get(Number(itemId))
+        )
+        .filter(Boolean);
+
+      return res.json({
+        status: "Success",
+        totalItems: orderedItems.length,
+        items: orderedItems,
+      });
+    } catch (error) {
+      console.error("Wishlist error:", error);
+
+      return res.status(500).json({
+        error: "Unable to load wishlist.",
       });
     }
-
-    const likedItemIds = Array.isArray(user.likedItems)
-      ? user.likedItems
-      : [];
-
-    const items = await ClothingItem.find({
-      id: {
-        $in: likedItemIds,
-      },
-    })
-      .sort({ id: 1 })
-      .lean();
-
-    res.json({
-      status: "Success",
-      totalItems: items.length,
-      items,
-    });
-  } catch (error) {
-    console.error("Wishlist error:", error);
-
-    res.status(500).json({
-      error: "Unable to load wishlist.",
-    });
   }
+);
+
+// -------------------- 404 JSON RESPONSE --------------------
+
+app.use((req, res) => {
+  res.status(404).json({
+    error: `Route not found: ${req.method} ${req.originalUrl}`,
+  });
 });
+
 // -------------------- START SERVER --------------------
 
 const PORT = 5000;
 
 app.listen(PORT, () => {
-  console.log(`Vivere server running on port ${PORT}`);
-});
-// -------------------- GET USER'S LIKED ITEMS --------------------
-
-app.get("/api/users/:userId/likes", async (req, res) => {
-  try {
-    const { userId } = req.params;
-
-    if (!mongoose.Types.ObjectId.isValid(userId)) {
-      return res.status(400).json({
-        error: "Invalid user ID.",
-      });
-    }
-
-    const user = await User.findById(userId).lean();
-
-    if (!user) {
-      return res.status(404).json({
-        error: "User not found.",
-      });
-    }
-
-    const likedItemIds = Array.isArray(user.likedItems)
-      ? user.likedItems
-      : [];
-
-    const items = await ClothingItem.find({
-      id: { $in: likedItemIds },
-    })
-      .sort({ id: 1 })
-      .lean();
-
-    res.json({
-      status: "Success",
-      totalItems: items.length,
-      items,
-    });
-  } catch (error) {
-    console.error("Wishlist error:", error);
-
-    res.status(500).json({
-      error: "Unable to load wishlist.",
-    });
-  }
+  console.log(
+    `Vivere server running on port ${PORT}`
+  );
 });

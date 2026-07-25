@@ -2,6 +2,39 @@ import { useEffect, useState } from "react";
 import "./App.css";
 import AuthPage from "./components/AuthPage";
 
+const stylistColourOptions = [
+  "Black",
+  "White",
+  "Navy Blue",
+  "Blue",
+  "Grey",
+  "Red",
+  "Pink",
+  "Green",
+  "Brown",
+  "Beige",
+  "Purple",
+  "Yellow",
+];
+
+const stylistArticleOptions = [
+  "Tshirts",
+  "Shirts",
+  "Tops",
+  "Dresses",
+  "Jeans",
+  "Trousers",
+  "Shorts",
+  "Skirts",
+  "Jackets",
+  "Sweatshirts",
+  "Sweaters",
+  "Sports Shoes",
+  "Casual Shoes",
+  "Handbags",
+  "Backpacks",
+];
+
 function App() {
   const [items, setItems] = useState([]);
   const [page, setPage] = useState(1);
@@ -27,11 +60,24 @@ function App() {
 
   const [showAuth, setShowAuth] = useState(false);
 
-  // Shop or wishlist
+  // Main views: shop, wishlist or stylist.
   const [currentView, setCurrentView] = useState("shop");
+
+  // Wishlist
   const [wishlistItems, setWishlistItems] = useState([]);
   const [wishlistLoading, setWishlistLoading] = useState(false);
   const [wishlistError, setWishlistError] = useState("");
+
+  // Personal stylist
+  const [stylistGender, setStylistGender] = useState("");
+  const [stylistColours, setStylistColours] = useState([]);
+  const [stylistUsage, setStylistUsage] = useState("");
+  const [stylistSeason, setStylistSeason] = useState("");
+  const [stylistArticleTypes, setStylistArticleTypes] = useState([]);
+  const [stylistItems, setStylistItems] = useState([]);
+  const [stylistLoading, setStylistLoading] = useState(false);
+  const [stylistError, setStylistError] = useState("");
+  const [stylistHasRun, setStylistHasRun] = useState(false);
 
   // Product-details modal
   const [selectedItem, setSelectedItem] = useState(null);
@@ -127,6 +173,11 @@ function App() {
     }
   };
 
+  const openShop = () => {
+    setCurrentView("shop");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
   const openWishlist = async () => {
     if (!user) {
       setShowAuth(true);
@@ -138,8 +189,8 @@ function App() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  const returnToShop = () => {
-    setCurrentView("shop");
+  const openStylist = () => {
+    setCurrentView("stylist");
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
@@ -295,6 +346,68 @@ function App() {
     setSimilarError("");
   };
 
+  const toggleStylistChoice = (value, currentValues, setter) => {
+    if (currentValues.includes(value)) {
+      setter(currentValues.filter((currentValue) => currentValue !== value));
+    } else {
+      setter([...currentValues, value]);
+    }
+  };
+
+  const handleStylistSubmit = async (event) => {
+    event.preventDefault();
+
+    setStylistLoading(true);
+    setStylistError("");
+    setStylistHasRun(true);
+
+    try {
+      const response = await fetch(
+        "http://localhost:5000/api/recommendation",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            gender: stylistGender,
+            colours: stylistColours,
+            usage: stylistUsage,
+            season: stylistSeason,
+            articleTypes: stylistArticleTypes,
+          }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.error || "Unable to create your recommendations."
+        );
+      }
+
+      setStylistItems(data.items || []);
+    } catch (error) {
+      console.error("Stylist error:", error);
+      setStylistItems([]);
+      setStylistError(error.message);
+    } finally {
+      setStylistLoading(false);
+    }
+  };
+
+  const resetStylist = () => {
+    setStylistGender("");
+    setStylistColours([]);
+    setStylistUsage("");
+    setStylistSeason("");
+    setStylistArticleTypes([]);
+    setStylistItems([]);
+    setStylistError("");
+    setStylistHasRun(false);
+  };
+
   const renderProductCard = (item, wishlistCard = false) => {
     const isLiked = user?.likedItems?.includes(item.id);
 
@@ -358,246 +471,424 @@ function App() {
     );
   };
 
+  const renderShop = () => (
+    <>
+      <form className="search-section" onSubmit={handleSearch}>
+        <input
+          type="search"
+          placeholder="Search black tops, dresses, shoes..."
+          value={searchInput}
+          onChange={(event) => setSearchInput(event.target.value)}
+        />
+
+        <button type="submit" className="search-button">
+          Search
+        </button>
+
+        <button
+          type="button"
+          className="clear-button"
+          onClick={handleClear}
+        >
+          Clear
+        </button>
+      </form>
+
+      <section className="filter-section">
+        <select
+          value={gender}
+          onChange={(event) =>
+            handleFilterChange(setGender, event.target.value)
+          }
+        >
+          <option value="">All genders</option>
+          <option value="Women">Women</option>
+          <option value="Men">Men</option>
+          <option value="Girls">Girls</option>
+          <option value="Boys">Boys</option>
+          <option value="Unisex">Unisex</option>
+        </select>
+
+        <select
+          value={colour}
+          onChange={(event) =>
+            handleFilterChange(setColour, event.target.value)
+          }
+        >
+          <option value="">All colours</option>
+          {stylistColourOptions.map((colourOption) => (
+            <option value={colourOption} key={colourOption}>
+              {colourOption}
+            </option>
+          ))}
+        </select>
+
+        <select
+          value={season}
+          onChange={(event) =>
+            handleFilterChange(setSeason, event.target.value)
+          }
+        >
+          <option value="">All seasons</option>
+          <option value="Summer">Summer</option>
+          <option value="Winter">Winter</option>
+          <option value="Fall">Fall</option>
+          <option value="Spring">Spring</option>
+        </select>
+
+        <select
+          value={usage}
+          onChange={(event) =>
+            handleFilterChange(setUsage, event.target.value)
+          }
+        >
+          <option value="">All uses</option>
+          <option value="Casual">Casual</option>
+          <option value="Formal">Formal</option>
+          <option value="Sports">Sports</option>
+          <option value="Travel">Travel</option>
+          <option value="Ethnic">Ethnic</option>
+        </select>
+      </section>
+
+      {(activeSearch || gender || colour || season || usage) && !loading && (
+        <p className="search-summary">
+          Showing filtered results
+          {activeSearch && (
+            <>
+              {" "}
+              for <strong>“{activeSearch}”</strong>
+            </>
+          )}
+        </p>
+      )}
+
+      {loading ? (
+        <p className="status-message">Loading fashion items...</p>
+      ) : items.length === 0 ? (
+        <p className="status-message">
+          No clothing items matched your filters.
+        </p>
+      ) : (
+        <section className="product-grid">
+          {items.map((item) => renderProductCard(item))}
+        </section>
+      )}
+
+      {!loading && items.length > 0 && (
+        <div className="pagination">
+          <button
+            type="button"
+            onClick={handlePrevious}
+            disabled={page === 1}
+          >
+            Previous
+          </button>
+
+          <span>
+            Page {page} of {totalPages}
+          </span>
+
+          <button
+            type="button"
+            onClick={handleNext}
+            disabled={page === totalPages}
+          >
+            Next
+          </button>
+        </div>
+      )}
+    </>
+  );
+
+  const renderWishlist = () => (
+    <section className="wishlist-view">
+      <div className="wishlist-heading">
+        <div>
+          <p className="wishlist-eyebrow">Your saved fashion</p>
+          <h2>My Wishlist</h2>
+          <p>
+            {wishlistItems.length}{" "}
+            {wishlistItems.length === 1 ? "item" : "items"} saved
+          </p>
+        </div>
+
+        <button
+          type="button"
+          className="back-to-shop-button"
+          onClick={openShop}
+        >
+          ← Back to shop
+        </button>
+      </div>
+
+      {wishlistLoading ? (
+        <p className="status-message">Loading your wishlist...</p>
+      ) : wishlistError ? (
+        <p className="status-message">{wishlistError}</p>
+      ) : wishlistItems.length === 0 ? (
+        <div className="empty-wishlist">
+          <h3>Your wishlist is empty</h3>
+          <p>Like products in the shop and they will appear here.</p>
+
+          <button
+            type="button"
+            className="search-button"
+            onClick={openShop}
+          >
+            Discover fashion
+          </button>
+        </div>
+      ) : (
+        <section className="product-grid">
+          {wishlistItems.map((item) => renderProductCard(item, true))}
+        </section>
+      )}
+    </section>
+  );
+
+  const renderStylist = () => (
+    <section className="stylist-view">
+      <div className="stylist-heading">
+        <div>
+          <p className="stylist-eyebrow">Personal recommendation engine</p>
+          <h2>Vivere Personal Stylist</h2>
+          <p>
+            Select your preferences and Vivere will search the fashion
+            dataset for a personalised collection.
+          </p>
+        </div>
+
+        <button
+          type="button"
+          className="back-to-shop-button"
+          onClick={openShop}
+        >
+          ← Back to shop
+        </button>
+      </div>
+
+      <form className="stylist-form" onSubmit={handleStylistSubmit}>
+        <div className="stylist-field">
+          <label htmlFor="stylist-gender">Who are you shopping for?</label>
+
+          <select
+            id="stylist-gender"
+            value={stylistGender}
+            onChange={(event) => setStylistGender(event.target.value)}
+          >
+            <option value="">Any gender</option>
+            <option value="Women">Women</option>
+            <option value="Men">Men</option>
+            <option value="Girls">Girls</option>
+            <option value="Boys">Boys</option>
+            <option value="Unisex">Unisex</option>
+          </select>
+        </div>
+
+        <div className="stylist-field">
+          <label htmlFor="stylist-usage">What is the occasion?</label>
+
+          <select
+            id="stylist-usage"
+            value={stylistUsage}
+            onChange={(event) => setStylistUsage(event.target.value)}
+          >
+            <option value="">Any occasion</option>
+            <option value="Casual">Casual</option>
+            <option value="Formal">Formal</option>
+            <option value="Sports">Sports</option>
+            <option value="Travel">Travel</option>
+            <option value="Ethnic">Ethnic</option>
+          </select>
+        </div>
+
+        <div className="stylist-field">
+          <label htmlFor="stylist-season">Preferred season</label>
+
+          <select
+            id="stylist-season"
+            value={stylistSeason}
+            onChange={(event) => setStylistSeason(event.target.value)}
+          >
+            <option value="">Any season</option>
+            <option value="Summer">Summer</option>
+            <option value="Winter">Winter</option>
+            <option value="Fall">Fall</option>
+            <option value="Spring">Spring</option>
+          </select>
+        </div>
+
+        <fieldset className="stylist-choice-group">
+          <legend>Favourite colours</legend>
+          <p>Choose one or several colours.</p>
+
+          <div className="stylist-choice-grid">
+            {stylistColourOptions.map((colourOption) => {
+              const selected = stylistColours.includes(colourOption);
+
+              return (
+                <button
+                  type="button"
+                  key={colourOption}
+                  className={
+                    selected
+                      ? "stylist-choice selected"
+                      : "stylist-choice"
+                  }
+                  onClick={() =>
+                    toggleStylistChoice(
+                      colourOption,
+                      stylistColours,
+                      setStylistColours
+                    )
+                  }
+                >
+                  {selected ? "✓ " : ""}
+                  {colourOption}
+                </button>
+              );
+            })}
+          </div>
+        </fieldset>
+
+        <fieldset className="stylist-choice-group">
+          <legend>Items you want to discover</legend>
+          <p>Choose as many product types as you like.</p>
+
+          <div className="stylist-choice-grid">
+            {stylistArticleOptions.map((articleOption) => {
+              const selected =
+                stylistArticleTypes.includes(articleOption);
+
+              return (
+                <button
+                  type="button"
+                  key={articleOption}
+                  className={
+                    selected
+                      ? "stylist-choice selected"
+                      : "stylist-choice"
+                  }
+                  onClick={() =>
+                    toggleStylistChoice(
+                      articleOption,
+                      stylistArticleTypes,
+                      setStylistArticleTypes
+                    )
+                  }
+                >
+                  {selected ? "✓ " : ""}
+                  {articleOption}
+                </button>
+              );
+            })}
+          </div>
+        </fieldset>
+
+        <div className="stylist-form-actions">
+          <button
+            type="submit"
+            className="stylist-submit-button"
+            disabled={stylistLoading}
+          >
+            {stylistLoading
+              ? "Creating your collection..."
+              : "✨ Create My Style"}
+          </button>
+
+          <button
+            type="button"
+            className="stylist-reset-button"
+            onClick={resetStylist}
+          >
+            Reset
+          </button>
+        </div>
+      </form>
+
+      {stylistLoading ? (
+        <p className="status-message">
+          Searching the dataset for your style...
+        </p>
+      ) : stylistError ? (
+        <p className="status-message">{stylistError}</p>
+      ) : stylistHasRun && stylistItems.length === 0 ? (
+        <div className="stylist-empty">
+          <h3>No exact matches were found</h3>
+          <p>
+            Try removing one preference or choosing additional colours.
+          </p>
+        </div>
+      ) : stylistItems.length > 0 ? (
+        <section className="stylist-results">
+          <div className="stylist-results-heading">
+            <p>Curated for you</p>
+            <h3>Your Vivere Collection</h3>
+            <span>{stylistItems.length} recommendations</span>
+          </div>
+
+          <div className="product-grid">
+            {stylistItems.map((item) => renderProductCard(item))}
+          </div>
+        </section>
+      ) : null}
+    </section>
+  );
+
   return (
     <div className="app">
       <header className="header">
-        <div>
+        <button type="button" className="brand-button" onClick={openShop}>
           <h1>Vivere</h1>
           <p>Discover fashion selected for your style.</p>
-        </div>
+        </button>
 
-        {user ? (
-          <div className="user-controls">
-            <span>Hello, {user.username}</span>
+        <div className="header-actions">
+          <button
+            type="button"
+            className="stylist-header-button"
+            onClick={openStylist}
+          >
+            ✨ Personal Stylist
+          </button>
 
-            <button
-              type="button"
-              className="wishlist-button"
-              onClick={openWishlist}
-            >
-              ♥ Wishlist ({user.likedItems?.length || 0})
-            </button>
+          {user ? (
+            <div className="user-controls">
+              <span>Hello, {user.username}</span>
 
+              <button
+                type="button"
+                className="wishlist-button"
+                onClick={openWishlist}
+              >
+                ♥ Wishlist ({user.likedItems?.length || 0})
+              </button>
+
+              <button
+                type="button"
+                className="profile-button"
+                onClick={handleLogout}
+              >
+                Log out
+              </button>
+            </div>
+          ) : (
             <button
               type="button"
               className="profile-button"
-              onClick={handleLogout}
+              onClick={() => setShowAuth(true)}
             >
-              Log out
+              Log in
             </button>
-          </div>
-        ) : (
-          <button
-            type="button"
-            className="profile-button"
-            onClick={() => setShowAuth(true)}
-          >
-            Log in
-          </button>
-        )}
+          )}
+        </div>
       </header>
 
       <main>
-        {currentView === "shop" ? (
-          <>
-            <form className="search-section" onSubmit={handleSearch}>
-              <input
-                type="search"
-                placeholder="Search black tops, dresses, shoes..."
-                value={searchInput}
-                onChange={(event) =>
-                  setSearchInput(event.target.value)
-                }
-              />
-
-              <button type="submit" className="search-button">
-                Search
-              </button>
-
-              <button
-                type="button"
-                className="clear-button"
-                onClick={handleClear}
-              >
-                Clear
-              </button>
-            </form>
-
-            <section className="filter-section">
-              <select
-                value={gender}
-                onChange={(event) =>
-                  handleFilterChange(setGender, event.target.value)
-                }
-              >
-                <option value="">All genders</option>
-                <option value="Women">Women</option>
-                <option value="Men">Men</option>
-                <option value="Girls">Girls</option>
-                <option value="Boys">Boys</option>
-                <option value="Unisex">Unisex</option>
-              </select>
-
-              <select
-                value={colour}
-                onChange={(event) =>
-                  handleFilterChange(setColour, event.target.value)
-                }
-              >
-                <option value="">All colours</option>
-                <option value="Black">Black</option>
-                <option value="White">White</option>
-                <option value="Blue">Blue</option>
-                <option value="Navy Blue">Navy Blue</option>
-                <option value="Grey">Grey</option>
-                <option value="Red">Red</option>
-                <option value="Pink">Pink</option>
-                <option value="Green">Green</option>
-                <option value="Brown">Brown</option>
-                <option value="Beige">Beige</option>
-                <option value="Purple">Purple</option>
-                <option value="Yellow">Yellow</option>
-              </select>
-
-              <select
-                value={season}
-                onChange={(event) =>
-                  handleFilterChange(setSeason, event.target.value)
-                }
-              >
-                <option value="">All seasons</option>
-                <option value="Summer">Summer</option>
-                <option value="Winter">Winter</option>
-                <option value="Fall">Fall</option>
-                <option value="Spring">Spring</option>
-              </select>
-
-              <select
-                value={usage}
-                onChange={(event) =>
-                  handleFilterChange(setUsage, event.target.value)
-                }
-              >
-                <option value="">All uses</option>
-                <option value="Casual">Casual</option>
-                <option value="Formal">Formal</option>
-                <option value="Sports">Sports</option>
-                <option value="Travel">Travel</option>
-                <option value="Ethnic">Ethnic</option>
-              </select>
-            </section>
-
-            {(activeSearch ||
-              gender ||
-              colour ||
-              season ||
-              usage) &&
-              !loading && (
-                <p className="search-summary">
-                  Showing filtered results
-                  {activeSearch && (
-                    <>
-                      {" "}
-                      for <strong>“{activeSearch}”</strong>
-                    </>
-                  )}
-                </p>
-              )}
-
-            {loading ? (
-              <p className="status-message">
-                Loading fashion items...
-              </p>
-            ) : items.length === 0 ? (
-              <p className="status-message">
-                No clothing items matched your filters.
-              </p>
-            ) : (
-              <section className="product-grid">
-                {items.map((item) => renderProductCard(item))}
-              </section>
-            )}
-
-            {!loading && items.length > 0 && (
-              <div className="pagination">
-                <button
-                  type="button"
-                  onClick={handlePrevious}
-                  disabled={page === 1}
-                >
-                  Previous
-                </button>
-
-                <span>
-                  Page {page} of {totalPages}
-                </span>
-
-                <button
-                  type="button"
-                  onClick={handleNext}
-                  disabled={page === totalPages}
-                >
-                  Next
-                </button>
-              </div>
-            )}
-          </>
-        ) : (
-          <section className="wishlist-view">
-            <div className="wishlist-heading">
-              <div>
-                <p className="wishlist-eyebrow">
-                  Your saved fashion
-                </p>
-
-                <h2>My Wishlist</h2>
-
-                <p>
-                  {wishlistItems.length}{" "}
-                  {wishlistItems.length === 1 ? "item" : "items"} saved
-                </p>
-              </div>
-
-              <button
-                type="button"
-                className="back-to-shop-button"
-                onClick={returnToShop}
-              >
-                ← Back to shop
-              </button>
-            </div>
-
-            {wishlistLoading ? (
-              <p className="status-message">
-                Loading your wishlist...
-              </p>
-            ) : wishlistError ? (
-              <p className="status-message">{wishlistError}</p>
-            ) : wishlistItems.length === 0 ? (
-              <div className="empty-wishlist">
-                <h3>Your wishlist is empty</h3>
-
-                <p>
-                  Like products in the shop and they will appear here.
-                </p>
-
-                <button
-                  type="button"
-                  className="search-button"
-                  onClick={returnToShop}
-                >
-                  Discover fashion
-                </button>
-              </div>
-            ) : (
-              <section className="product-grid">
-                {wishlistItems.map((item) =>
-                  renderProductCard(item, true)
-                )}
-              </section>
-            )}
-          </section>
-        )}
+        {currentView === "shop" && renderShop()}
+        {currentView === "wishlist" && renderWishlist()}
+        {currentView === "stylist" && renderStylist()}
       </main>
 
       {showAuth && (
@@ -738,7 +1029,6 @@ function App() {
 
             <div className="similar-heading">
               <p>Similar to</p>
-
               <h2>
                 {similarSource?.productDisplayName ||
                   "Selected product"}
