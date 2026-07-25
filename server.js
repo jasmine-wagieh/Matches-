@@ -374,10 +374,17 @@ app.post("/api/auth/login", async (req, res) => {
 
 // -------------------- LIKE OR UNLIKE ITEM --------------------
 
+
 app.post("/api/users/:userId/likes/:itemId", async (req, res) => {
   try {
-    const userId = req.params.userId;
+    const { userId } = req.params;
     const itemId = Number.parseInt(req.params.itemId, 10);
+
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({
+        error: "Invalid user ID.",
+      });
+    }
 
     if (Number.isNaN(itemId)) {
       return res.status(400).json({
@@ -389,15 +396,21 @@ app.post("/api/users/:userId/likes/:itemId", async (req, res) => {
 
     if (!user) {
       return res.status(404).json({
-        error: "User not found.",
+        error: "User not found. Please log out and log in again.",
       });
     }
 
-    const alreadyLiked = user.likedItems.includes(itemId);
+    if (!Array.isArray(user.likedItems)) {
+      user.likedItems = [];
+    }
+
+    const alreadyLiked = user.likedItems.some(
+      (likedItemId) => Number(likedItemId) === itemId
+    );
 
     if (alreadyLiked) {
       user.likedItems = user.likedItems.filter(
-        (likedItemId) => likedItemId !== itemId
+        (likedItemId) => Number(likedItemId) !== itemId
       );
     } else {
       user.likedItems.push(itemId);
@@ -414,7 +427,53 @@ app.post("/api/users/:userId/likes/:itemId", async (req, res) => {
     console.error("Like error:", error);
 
     res.status(500).json({
-      error: "Unable to update liked items.",
+      error: error.message || "Unable to update liked items.",
+    });
+  }
+});
+
+// -------------------- GET USER'S LIKED ITEMS --------------------
+
+app.get("/api/users/:userId/likes", async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({
+        error: "Invalid user ID.",
+      });
+    }
+
+    const user = await User.findById(userId).lean();
+
+    if (!user) {
+      return res.status(404).json({
+        error: "User not found.",
+      });
+    }
+
+    const likedItemIds = Array.isArray(user.likedItems)
+      ? user.likedItems
+      : [];
+
+    const items = await ClothingItem.find({
+      id: {
+        $in: likedItemIds,
+      },
+    })
+      .sort({ id: 1 })
+      .lean();
+
+    res.json({
+      status: "Success",
+      totalItems: items.length,
+      items,
+    });
+  } catch (error) {
+    console.error("Wishlist error:", error);
+
+    res.status(500).json({
+      error: "Unable to load wishlist.",
     });
   }
 });
@@ -424,4 +483,47 @@ const PORT = 5000;
 
 app.listen(PORT, () => {
   console.log(`Vivere server running on port ${PORT}`);
+});
+// -------------------- GET USER'S LIKED ITEMS --------------------
+
+app.get("/api/users/:userId/likes", async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({
+        error: "Invalid user ID.",
+      });
+    }
+
+    const user = await User.findById(userId).lean();
+
+    if (!user) {
+      return res.status(404).json({
+        error: "User not found.",
+      });
+    }
+
+    const likedItemIds = Array.isArray(user.likedItems)
+      ? user.likedItems
+      : [];
+
+    const items = await ClothingItem.find({
+      id: { $in: likedItemIds },
+    })
+      .sort({ id: 1 })
+      .lean();
+
+    res.json({
+      status: "Success",
+      totalItems: items.length,
+      items,
+    });
+  } catch (error) {
+    console.error("Wishlist error:", error);
+
+    res.status(500).json({
+      error: "Unable to load wishlist.",
+    });
+  }
 });

@@ -27,6 +27,13 @@ function App() {
 
   const [showAuth, setShowAuth] = useState(false);
 
+  // Similar-items modal
+  const [similarItems, setSimilarItems] = useState([]);
+  const [similarSource, setSimilarSource] = useState(null);
+  const [showSimilar, setShowSimilar] = useState(false);
+  const [similarLoading, setSimilarLoading] = useState(false);
+  const [similarError, setSimilarError] = useState("");
+
   useEffect(() => {
     const loadItems = async () => {
       setLoading(true);
@@ -46,11 +53,11 @@ function App() {
           `http://localhost:5000/api/items?${query.toString()}`
         );
 
-        if (!response.ok) {
-          throw new Error("Failed to load clothing items.");
-        }
-
         const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || "Failed to load clothing items.");
+        }
 
         setItems(data.items || []);
         setTotalPages(data.totalPages || 1);
@@ -140,6 +147,40 @@ function App() {
     }
   };
 
+  const handleFindSimilar = async (item) => {
+    setSimilarSource(item);
+    setSimilarItems([]);
+    setSimilarError("");
+    setSimilarLoading(true);
+    setShowSimilar(true);
+
+    try {
+      const response = await fetch(
+        `http://localhost:5000/api/agent/similar/${item.id}`
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Unable to find similar items.");
+      }
+
+      setSimilarItems(data.recommendations || []);
+    } catch (error) {
+      console.error("Similar-item error:", error);
+      setSimilarError(error.message);
+    } finally {
+      setSimilarLoading(false);
+    }
+  };
+
+  const closeSimilarModal = () => {
+    setShowSimilar(false);
+    setSimilarItems([]);
+    setSimilarSource(null);
+    setSimilarError("");
+  };
+
   return (
     <div className="app">
       <header className="header">
@@ -152,12 +193,17 @@ function App() {
           <div className="user-controls">
             <span>Hello, {user.username}</span>
 
-            <button className="profile-button" onClick={handleLogout}>
+            <button
+              type="button"
+              className="profile-button"
+              onClick={handleLogout}
+            >
               Log out
             </button>
           </div>
         ) : (
           <button
+            type="button"
             className="profile-button"
             onClick={() => setShowAuth(true)}
           >
@@ -310,11 +356,7 @@ function App() {
                       <button
                         type="button"
                         className="similar-button"
-                        onClick={() =>
-                          alert(
-                            `Finding products similar to ${item.productDisplayName}`
-                          )
-                        }
+                        onClick={() => handleFindSimilar(item)}
                       >
                         Find similar
                       </button>
@@ -328,7 +370,11 @@ function App() {
 
         {!loading && items.length > 0 && (
           <div className="pagination">
-            <button onClick={handlePrevious} disabled={page === 1}>
+            <button
+              type="button"
+              onClick={handlePrevious}
+              disabled={page === 1}
+            >
               Previous
             </button>
 
@@ -336,7 +382,11 @@ function App() {
               Page {page} of {totalPages}
             </span>
 
-            <button onClick={handleNext} disabled={page === totalPages}>
+            <button
+              type="button"
+              onClick={handleNext}
+              disabled={page === totalPages}
+            >
               Next
             </button>
           </div>
@@ -351,6 +401,83 @@ function App() {
           }}
           onClose={() => setShowAuth(false)}
         />
+      )}
+
+      {showSimilar && (
+        <div className="similar-overlay" onClick={closeSimilarModal}>
+          <div
+            className="similar-modal"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <button
+              type="button"
+              className="similar-close"
+              onClick={closeSimilarModal}
+              aria-label="Close similar-items window"
+            >
+              ×
+            </button>
+
+            <div className="similar-heading">
+              <p>Similar to</p>
+              <h2>
+                {similarSource?.productDisplayName || "Selected product"}
+              </h2>
+            </div>
+
+            {similarLoading ? (
+              <p className="status-message">
+                Finding similar fashion items...
+              </p>
+            ) : similarError ? (
+              <p className="status-message">{similarError}</p>
+            ) : similarItems.length === 0 ? (
+              <p className="status-message">No similar items found.</p>
+            ) : (
+              <div className="similar-grid">
+                {similarItems.map((similarItem) => {
+                  const isLiked =
+                    user?.likedItems?.includes(similarItem.id);
+
+                  return (
+                    <article
+                      className="similar-card"
+                      key={similarItem.id}
+                    >
+                      <img
+                        src={`/images/${similarItem.id}.jpg`}
+                        alt={similarItem.productDisplayName}
+                        onError={handleImageError}
+                      />
+
+                      <div className="similar-card-content">
+                        <p>{similarItem.articleType}</p>
+                        <h3>{similarItem.productDisplayName}</h3>
+
+                        <div className="similar-card-tags">
+                          <span>{similarItem.baseColour}</span>
+                          <span>{similarItem.gender}</span>
+                        </div>
+
+                        <button
+                          type="button"
+                          className={
+                            isLiked
+                              ? "like-button liked"
+                              : "like-button"
+                          }
+                          onClick={() => handleLike(similarItem)}
+                        >
+                          {isLiked ? "♥ Liked" : "♡ Like"}
+                        </button>
+                      </div>
+                    </article>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
       )}
     </div>
   );
