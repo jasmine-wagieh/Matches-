@@ -142,14 +142,14 @@ function UploadPage({ user, onBack, onUploaded }) {
       <div className="wishlist-heading">
         <div>
           <p className="wishlist-eyebrow">
-            Add to the Vivere collection
+            Add to the Matches collection
           </p>
 
           <h2>Upload Clothing</h2>
 
           <p>
             Upload a fashion item and add information that
-            helps Vivere include it in search and
+            helps Matches include it in search and
             recommendations.
           </p>
         </div>

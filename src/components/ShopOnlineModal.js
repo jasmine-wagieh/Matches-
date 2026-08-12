@@ -99,7 +99,7 @@ function ShopOnlineModal({ item, onClose }) {
 
           <div className="shop-online-results">
             <p>
-              Vivere will search online stores using:
+              Matches will search online stores using:
             </p>
 
             <strong>{searchText}</strong>

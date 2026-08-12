@@ -26,7 +26,7 @@ function App() {
 
   const [user, setUser] = useState(() => {
     try {
-      const savedUser = localStorage.getItem("vivereUser");
+      const savedUser = localStorage.getItem("MatchesUser");
       return savedUser ? JSON.parse(savedUser) : null;
     } catch {
       return null;
@@ -297,7 +297,7 @@ const renderRecommendations = () => (
         <h2>Recommended for You</h2>
 
         <p>
-          Vivere analyses your liked colours, categories,
+          Matches analyses your liked colours, categories,
           occasions and seasons to discover more products
           that match your taste.
         </p>
@@ -323,7 +323,7 @@ const renderRecommendations = () => (
     ) : recommendationsMessage &&
       recommendedItems.length === 0 ? (
       <div className="empty-wishlist">
-        <h3>Vivere needs more information</h3>
+        <h3>Matches needs more information</h3>
 
         <p>{recommendationsMessage}</p>
 
@@ -340,7 +340,7 @@ const renderRecommendations = () => (
         <h3>No recommendations yet</h3>
 
         <p>
-          Like a few products so Vivere can learn your
+          Like a few products so Matches can learn your
           preferences.
         </p>
 
@@ -359,7 +359,7 @@ const renderRecommendations = () => (
             <div className="stylist-results-heading">
               <p>Your learned taste</p>
 
-              <h3>Vivere Style Profile</h3>
+              <h3>Matches Style Profile</h3>
 
               <span>
                 Based on {user?.likedItems?.length || 0} liked{" "}
@@ -525,7 +525,7 @@ const closeShopOnline = () => {
   // -------------------- USER ACTIONS --------------------
 
   const handleLogout = () => {
-    localStorage.removeItem("vivereUser");
+    localStorage.removeItem("MatchesUser");
     setUser(null);
     setWishlistItems([]);
     setCurrentView("shop");
@@ -561,7 +561,7 @@ const closeShopOnline = () => {
       setUser(updatedUser);
 
       localStorage.setItem(
-        "vivereUser",
+        "MatchesUser",
         JSON.stringify(updatedUser)
       );
 
@@ -1087,10 +1087,10 @@ const closeShopOnline = () => {
             Personal recommendation engine
           </p>
 
-          <h2>Vivere Personal Stylist</h2>
+          <h2>Matches Personal Stylist</h2>
 
           <p>
-            Select your preferences and Vivere will
+            Select your preferences and Matches will
             search the fashion dataset for a personalised
             collection.
           </p>
@@ -1328,7 +1328,7 @@ const closeShopOnline = () => {
           <div className="stylist-results-heading">
             <p>Curated for you</p>
 
-            <h3>Your Vivere Collection</h3>
+            <h3>Your Matches Collection</h3>
 
             <span>
               {stylistItems.length} recommendations
@@ -1355,7 +1355,7 @@ const closeShopOnline = () => {
           className="brand-button"
           onClick={openShop}
         >
-          <h1>Vivere</h1>
+          <h1>Matches</h1>
 
           <p>
             Discover fashion selected for your style.
@@ -1453,7 +1453,7 @@ const closeShopOnline = () => {
           onLogin={(loggedInUser) => {
             setUser(loggedInUser);
             localStorage.setItem(
-              "vivereUser",
+              "MatchesUser",
               JSON.stringify(loggedInUser)
             );
             setShowAuth(false);

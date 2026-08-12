@@ -48,7 +48,7 @@ const upload = multer({
 mongoose
   .connect(process.env.MONGO_URI)
   .then(() => {
-    console.log("Vivere database connected successfully");
+    console.log("Matches database connected successfully");
   })
   .catch((error) => {
     console.error("Database connection error:", error);
@@ -137,7 +137,7 @@ const shuffle = (array) => {
 app.get("/", (req, res) => {
   res.json({
     status: "Success",
-    message: "Vivere API is running",
+    message: "Matches API is running",
   });
 });
 
@@ -849,7 +849,7 @@ app.get(
         return res.json({
           status: "Success",
           message:
-            "Like some products first so Vivere can learn your style.",
+            "Like some products first so Matches can learn your style.",
           totalItems: 0,
           tasteProfile: null,
           items: [],
@@ -1604,6 +1604,6 @@ console.log(
 
 app.listen(PORT, () => {
   console.log(
-    `Vivere server running on port ${PORT}`
+    `Matches server running on port ${PORT}`
   );
 });

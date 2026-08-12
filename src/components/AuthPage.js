@@ -64,7 +64,7 @@ function AuthPage({ onLogin, onClose }) {
         setPassword("");
       } else {
         localStorage.setItem(
-          "vivereUser",
+          "MatchesUser",
           JSON.stringify({
             userId: data.userId,
             username: data.username,
@@ -100,7 +100,7 @@ function AuthPage({ onLogin, onClose }) {
         </button>
 
         <div className="auth-heading">
-          <p className="auth-eyebrow">Vivere</p>
+          <p className="auth-eyebrow">Matches</p>
           <h2>{isRegister ? "Create your account" : "Welcome back"}</h2>
           <p>
             {isRegister
@@ -184,7 +184,7 @@ function AuthPage({ onLogin, onClose }) {
         >
           {isRegister
             ? "Already have an account? Log in"
-            : "New to Vivere? Create an account"}
+            : "New to Matches? Create an account"}
         </button>
       </div>
     </div>
